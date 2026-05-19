@@ -1,0 +1,67 @@
+use std::{cell::RefCell, rc::Rc};
+
+use crate::game::{boat::{Boat, Direction}, grid::Grid, hit_result::HitResult};
+
+pub struct Board<const W: usize = 8, const H: usize = 8> {
+    hits: Grid<W, H, bool>,
+    boat_refs: Grid<W, H, Option<Rc<RefCell<Boat>>>>,
+    boats: Vec<Rc<RefCell<Boat>>>,
+}
+
+impl<const W: usize, const H: usize> Board<W, H> {
+    pub fn hit(&mut self, position: (usize, usize)) -> HitResult {
+        self.hits[position] = true;
+        self.boat_refs[position]
+            .as_ref()
+            .map(|boat| boat.borrow_mut().hit(position))
+            .unwrap_or(HitResult::Water)
+    }
+
+    pub fn new(boats: Vec<Boat>) -> Self {
+        let boats: Vec<_> = boats.into_iter().map(RefCell::new).map(Rc::new).collect();
+        let mut boat_refs = Grid::new();
+        for boat in boats.iter() {
+            let boat_borrow = boat.borrow();
+            let positions: Vec<_> = match boat_borrow.direction {
+                Direction::North => (0..boat_borrow.len())
+                    .map(|i| {
+                        let mut position = boat_borrow.starting_position;
+                        position.1 += i;
+                        position
+                    })
+                    .collect(),
+                Direction::East => (0..boat_borrow.len())
+                    .map(|i| {
+                        let mut position = boat_borrow.starting_position;
+                        position.0 += i;
+                        position
+                    })
+                    .collect(),
+                Direction::South => (0..boat_borrow.len())
+                    .map(|i| {
+                        let mut position = boat_borrow.starting_position;
+                        position.1 -= i;
+                        position
+                    })
+                    .collect(),
+                Direction::West => (0..boat_borrow.len())
+                    .map(|i| {
+                        let mut position = boat_borrow.starting_position;
+                        position.0 -= i;
+                        position
+                    })
+                    .collect(),
+            };
+
+            for position in positions.into_iter() {
+                boat_refs[position] = Some(boat.clone());
+            }
+        }
+
+        Self {
+            hits: Grid::new(),
+            boat_refs,
+            boats,
+        }
+    }
+}
