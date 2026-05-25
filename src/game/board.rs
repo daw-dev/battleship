@@ -1,11 +1,14 @@
-use std::{cell::RefCell, rc::Rc};
+use std::sync::{Arc, RwLock};
 
 use crate::game::{boat::{Boat, Direction}, grid::Grid, hit_result::HitResult};
 
+type BoatRef = Arc<RwLock<Boat>>;
+
+#[derive(Debug)]
 pub struct Board<const W: usize = 8, const H: usize = 8> {
     hits: Grid<W, H, bool>,
-    boat_refs: Grid<W, H, Option<Rc<RefCell<Boat>>>>,
-    boats: Vec<Rc<RefCell<Boat>>>,
+    boat_refs: Grid<W, H, Option<BoatRef>>,
+    boats: Vec<BoatRef>,
 }
 
 impl<const W: usize, const H: usize> Board<W, H> {
@@ -13,15 +16,15 @@ impl<const W: usize, const H: usize> Board<W, H> {
         self.hits[position] = true;
         self.boat_refs[position]
             .as_ref()
-            .map(|boat| boat.borrow_mut().hit(position))
+            .map(|boat| boat.write().unwrap().hit(position))
             .unwrap_or(HitResult::Water)
     }
 
     pub fn new(boats: Vec<Boat>) -> Self {
-        let boats: Vec<_> = boats.into_iter().map(RefCell::new).map(Rc::new).collect();
+        let boats: Vec<_> = boats.into_iter().map(RwLock::new).map(Arc::new).collect();
         let mut boat_refs = Grid::new();
         for boat in boats.iter() {
-            let boat_borrow = boat.borrow();
+            let boat_borrow = boat.read().unwrap();
             let positions: Vec<_> = match boat_borrow.direction {
                 Direction::North => (0..boat_borrow.len())
                     .map(|i| {

@@ -1,5 +1,6 @@
 use std::ops::{Index, IndexMut};
 
+#[derive(Debug)]
 pub struct Grid<const W: usize, const H: usize, T> {
     matrix: [[T; W]; H],
 }

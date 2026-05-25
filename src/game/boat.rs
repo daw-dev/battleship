@@ -1,5 +1,8 @@
+use serde::Deserialize;
+
 use crate::game::hit_result::HitResult;
 
+#[derive(Debug, Deserialize)]
 pub enum Direction {
     North,
     East,
@@ -7,6 +10,7 @@ pub enum Direction {
     West,
 }
 
+#[derive(Debug, Deserialize)]
 pub struct Boat {
     pub(super) starting_position: (usize, usize),
     pub(super) direction: Direction,
