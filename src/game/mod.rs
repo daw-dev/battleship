@@ -1,4 +1,5 @@
-use rocket::request::FromParam;
+use std::{fmt::Display, str::FromStr};
+
 use serde::{Deserialize, Serialize};
 
 use crate::game::{board::Board, hit_result::HitResult};
@@ -9,58 +10,71 @@ pub mod hit_result;
 pub mod boat;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum Player {
-    Challenger,
-    Challenged,
+pub enum Role {
+    Host,
+    Guest,
 }
 
-impl std::ops::Not for Player {
-    type Output = Self;
-
-    fn not(self) -> Self::Output {
+impl Display for Role {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Player::Challenger => Player::Challenged,
-            Player::Challenged => Player::Challenger,
+            Self::Host => write!(f, "host"),
+            Self::Guest => write!(f, "guest"),
         }
     }
 }
 
-impl<'a> FromParam<'a> for Player {
-    type Error = ();
+impl FromStr for Role {
+    type Err = String;
 
-    fn from_param(param: &'a str) -> Result<Self, Self::Error> {
-        match param {
-            "Challenger" | "challenger" | "CHALLENGER" => Ok(Player::Challenger),
-            "Challenged" | "challenged" | "CHALLENGED" => Ok(Player::Challenged),
-            _ => Err(())
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Host" | "host" | "HOST" => Ok(Self::Host),
+            "Guest" | "guest" | "GUEST" => Ok(Self::Guest),
+            _ => Err(format!("{s} is not a role"))
+        }
+    }
+}
+
+impl std::ops::Not for Role {
+    type Output = Self;
+
+    fn not(self) -> Self::Output {
+        match self {
+            Role::Host => Role::Guest,
+            Role::Guest => Role::Host,
         }
     }
 }
 
 #[derive(Debug)]
 pub struct Game<const BOARD_WIDTH: usize = 8, const BOARD_HEIGHT: usize = 8> {
-    challenger_board: Board<BOARD_WIDTH, BOARD_HEIGHT>,
-    challenged_board: Board<BOARD_WIDTH, BOARD_HEIGHT>,
-    turn: Player,
+    host_board: Board<BOARD_WIDTH, BOARD_HEIGHT>,
+    guest_board: Board<BOARD_WIDTH, BOARD_HEIGHT>,
+    turn: Role,
 }
 
 impl<const BOARD_WIDTH: usize, const BOARD_HEIGHT: usize> Game<BOARD_WIDTH, BOARD_HEIGHT> {
-    pub fn new(challenger_board: Board<BOARD_WIDTH, BOARD_HEIGHT>, challenged_board: Board<BOARD_WIDTH, BOARD_HEIGHT>) -> Self {
+    pub fn new(host_board: Board<BOARD_WIDTH, BOARD_HEIGHT>, guest_board: Board<BOARD_WIDTH, BOARD_HEIGHT>) -> Self {
         Self {
-            challenger_board,
-            challenged_board,
-            turn: Player::Challenged,
+            host_board,
+            guest_board,
+            turn: Role::Guest,
         }
     }
 
-    pub fn hit(&mut self, position: (usize, usize)) -> HitResult {
+    pub fn shoot(&mut self, position: (usize, usize)) -> HitResult {
         let board = match self.turn {
-            Player::Challenger => &mut self.challenged_board,
-            Player::Challenged => &mut self.challenger_board,
+            Role::Host => &mut self.guest_board,
+            Role::Guest => &mut self.host_board,
         };
 
         self.turn = !self.turn;
 
-        board.hit(position)
+        board.shoot(position)
+    }
+
+    pub fn turn(&self) -> Role {
+        self.turn
     }
 }

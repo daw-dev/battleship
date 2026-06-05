@@ -12,7 +12,7 @@ pub struct Board<const W: usize = 8, const H: usize = 8> {
 }
 
 impl<const W: usize, const H: usize> Board<W, H> {
-    pub fn hit(&mut self, position: (usize, usize)) -> HitResult {
+    pub fn shoot(&mut self, position: (usize, usize)) -> HitResult {
         self.hits[position] = true;
         self.boat_refs[position]
             .as_ref()
