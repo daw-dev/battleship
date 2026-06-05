@@ -21,6 +21,7 @@ async fn main() -> Result<(), ClientError> {
 
     let engine = Engine::new(mqtt_options, 10);
 
+
     println!("✉️ Subscribing to topics...");
 
     engine.subscribe().await?;

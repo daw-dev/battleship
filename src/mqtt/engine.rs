@@ -1,8 +1,12 @@
-use std::collections::HashMap;
+use crate::{
+    game::{Game, Role, board::Board, boat::Boat, hit_result::HitResult},
+    mqtt::callbacks::Callbacks,
+};
 use itertools::Itertools;
 use rumqttc::{AsyncClient, ClientError, Event, EventLoop, MqttOptions, Packet, Publish, QoS};
 use serde::{Deserialize, Serialize};
-use crate::game::{Game, Role, board::Board, boat::Boat, hit_result::HitResult};
+use std::{collections::HashMap, sync::Arc};
+use tokio::sync::Mutex;
 
 #[derive(Deserialize, Debug)]
 struct Register {
@@ -25,38 +29,22 @@ struct WaitingGame {
     guest_boats: Option<Vec<Boat>>,
 }
 
-pub struct Engine {
-    client: AsyncClient,
-    eventloop: EventLoop,
+pub struct EngineState {
     register_id: usize,
     active_games: HashMap<usize, Game>,
     waiting_games: HashMap<usize, WaitingGame>,
 }
 
-impl Engine {
-    pub fn new(mqtt_options: MqttOptions, cap: usize) -> Self {
-        let (client, eventloop) = AsyncClient::new(mqtt_options, cap);
+impl EngineState {
+    fn new() -> Self {
         Self {
-            client,
-            eventloop,
             register_id: 0,
             active_games: HashMap::new(),
             waiting_games: HashMap::new(),
         }
     }
 
-    pub async fn subscribe(&self) -> Result<(), ClientError> {
-        self.client
-            .subscribe("battleship/register", QoS::AtLeastOnce)
-            .await?;
-        self.client
-            .subscribe("battleship/game/+/+/action", QoS::AtLeastOnce)
-            .await?;
-
-        Ok(())
-    }
-
-    async fn handle_register(&mut self, register_payload: Register) {
+    fn handle_register(&mut self, register_payload: Register, callbacks: &mut Callbacks) {
         #[derive(Serialize)]
         struct Register {
             role: Role,
@@ -72,15 +60,20 @@ impl Engine {
 
         let game_id = self.register_id / 2;
 
-        let res = self
-            .client
-            .publish(
-                format!("battleship/{}/assign", register_payload.id),
-                QoS::AtLeastOnce,
-                false,
-                serde_json::to_string(&Register { role, game_id }).unwrap(),
-            )
-            .await;
+        callbacks.add_callback(async move |client| {
+            let res = client
+                .publish(
+                    format!("battleship/{}/assign", register_payload.id),
+                    QoS::AtLeastOnce,
+                    false,
+                    serde_json::to_string(&Register { role, game_id }).unwrap(),
+                )
+                .await;
+
+            if let Err(err) = res {
+                eprintln!("couldn't register {}: {}", register_payload.id, err);
+            }
+        });
 
         self.waiting_games.entry(game_id).or_insert(WaitingGame {
             host_boats: None,
@@ -88,13 +81,9 @@ impl Engine {
         });
 
         self.register_id += 1;
-
-        if let Err(err) = res {
-            eprintln!("couldn't register {}: {}", register_payload.id, err);
-        }
     }
 
-    async fn handle_shoot(&mut self, game_id: usize, attacker: Role, position: (usize, usize)) {
+    fn handle_shoot(&mut self, game_id: usize, attacker: Role, position: (usize, usize), callbacks: &mut Callbacks) {
         #[derive(Serialize)]
         struct HitInfo {
             attacker: Role,
@@ -115,54 +104,57 @@ impl Engine {
             position,
         };
 
-        let res = self
-            .client
-            .publish(
-                format!("battleship/game/{game_id}/{attacker}/event"),
-                QoS::AtLeastOnce,
-                false,
-                serde_json::to_string(&hit_info_payload).unwrap(),
-            )
-            .await;
+        let turn = game.turn();
 
-        if let Err(err) = res {
-            eprintln!("couldn't send info to attacker: {}", err);
-        }
+        callbacks.add_callback(async move |client| {
+            let res = client
+                .publish(
+                    format!("battleship/game/{game_id}/{attacker}/event"),
+                    QoS::AtLeastOnce,
+                    false,
+                    serde_json::to_string(&hit_info_payload).unwrap(),
+                )
+                .await;
 
-        let res = self
-            .client
-            .publish(
-                format!("battleship/game/{game_id}/{}/event", !attacker),
-                QoS::AtLeastOnce,
-                false,
-                serde_json::to_string(&hit_info_payload).unwrap(),
-            )
-            .await;
+            if let Err(err) = res {
+                eprintln!("couldn't send info to attacker: {}", err);
+            }
 
-        if let Err(err) = res {
-            eprintln!("couldn't send info to defender: {}", err);
-        }
+            let res = client
+                .publish(
+                    format!("battleship/game/{game_id}/{}/event", !attacker),
+                    QoS::AtLeastOnce,
+                    false,
+                    serde_json::to_string(&hit_info_payload).unwrap(),
+                )
+                .await;
 
-        let res = self
-            .client
-            .publish(
-                format!("battleship/game/{game_id}/state"),
-                QoS::AtLeastOnce,
-                false,
-                serde_json::to_string(&TurnInfo { turn: game.turn() }).unwrap(),
-            )
-            .await;
+            if let Err(err) = res {
+                eprintln!("couldn't send info to defender: {}", err);
+            }
 
-        if let Err(err) = res {
-            eprintln!("couldn't send turn info: {}", err);
-        }
+            let res = client
+                .publish(
+                    format!("battleship/game/{game_id}/state"),
+                    QoS::AtLeastOnce,
+                    false,
+                    serde_json::to_string(&TurnInfo { turn }).unwrap(),
+                )
+                .await;
+
+            if let Err(err) = res {
+                eprintln!("couldn't send turn info: {}", err);
+            }
+        });
     }
 
-    async fn handle_setup(&mut self, game_id: usize, role: Role, boats: Vec<Boat>) {
+    fn handle_setup(&mut self, game_id: usize, role: Role, boats: Vec<Boat>, callbacks: &mut Callbacks) {
         let Some(game) = self.waiting_games.get_mut(&game_id) else {
             eprintln!("no such waiting game");
             return;
         };
+
+        println!("{role} setting up game {game_id}");
 
         let start_game = match role {
             Role::Host => {
@@ -187,37 +179,44 @@ impl Engine {
 
             self.active_games.insert(game_id, new_game);
 
-            let res = self
-                .client
-                .publish(
-                    format!("battleship/games/{game_id}/state"),
-                    QoS::AtLeastOnce,
-                    false,
-                    serde_json::to_string(&TurnInfo { turn: first_turn }).unwrap(),
-                )
-                .await;
+            println!("game start!");
 
-            if let Err(err) = res {
-                eprintln!("couldn't send turn info: {err}");
-            }
+            callbacks.add_callback(async move |client| {
+                let res = client
+                    .publish(
+                        format!("battleship/game/{game_id}/state"),
+                        QoS::AtLeastOnce,
+                        false,
+                        serde_json::to_string(&TurnInfo { turn: first_turn }).unwrap(),
+                    )
+                    .await;
+
+                if let Err(err) = res {
+                    eprintln!("couldn't send turn info: {err}");
+                }
+            });
         }
     }
 
-    async fn handle_action(&mut self, game_id: usize, role: Role, action_payload: Action) {
+    fn handle_action(&mut self, game_id: usize, role: Role, action_payload: Action, callbacks: &mut Callbacks) {
         match action_payload {
-            Action::Shoot(x, y) => self.handle_shoot(game_id, role, (x, y)).await,
-            Action::Setup(boats) => self.handle_setup(game_id, role, boats).await,
+            Action::Shoot(x, y) => self.handle_shoot(game_id, role, (x, y), callbacks),
+            Action::Setup(boats) => self.handle_setup(game_id, role, boats, callbacks),
         }
     }
 
-    async fn handle_packet(&mut self, packet: Publish) {
+    fn handle_packet(&mut self, packet: Publish) -> Callbacks {
+        let mut result = Callbacks::new();
+
+        println!("packet: {packet:?}");
+
         match packet.topic.split("/").collect_vec().as_slice() {
             ["battleship", "register"] => {
                 let payload = match String::from_utf8(packet.payload.to_vec()) {
                     Ok(payload) => payload,
                     Err(err) => {
                         eprintln!("broken payload: {err}");
-                        return;
+                        return Callbacks::nothing();
                     }
                 };
 
@@ -225,18 +224,18 @@ impl Engine {
                     Ok(parsed) => parsed,
                     Err(err) => {
                         eprintln!("wrong payload: {err}");
-                        return;
+                        return Callbacks::nothing();
                     }
                 };
 
-                self.handle_register(register_payload).await;
+                self.handle_register(register_payload, &mut result);
             }
             ["battleship", "game", game_id, role, "action"] => {
                 let payload = match String::from_utf8(packet.payload.to_vec()) {
                     Ok(payload) => payload,
                     Err(err) => {
                         eprintln!("broken payload: {err}");
-                        return;
+                        return Callbacks::nothing();
                     }
                 };
 
@@ -244,7 +243,7 @@ impl Engine {
                     Ok(parsed) => parsed,
                     Err(err) => {
                         eprintln!("wrong payload: {err}");
-                        return;
+                        return Callbacks::nothing();
                     }
                 };
 
@@ -252,7 +251,7 @@ impl Engine {
                     Ok(parsed) => parsed,
                     Err(err) => {
                         eprintln!("wrong game_id: {err}");
-                        return;
+                        return Callbacks::nothing();
                     }
                 };
 
@@ -260,14 +259,44 @@ impl Engine {
                     Ok(parsed) => parsed,
                     Err(err) => {
                         eprintln!("wrong role: {err}");
-                        return;
+                        return Callbacks::nothing();
                     }
                 };
 
-                self.handle_action(game_id, role, action_payload).await;
+                self.handle_action(game_id, role, action_payload, &mut result);
             }
             topic => unreachable!("not subscribed to {}", topic.join("/")),
         }
+
+        result
+    }
+}
+
+pub struct Engine {
+    client: AsyncClient,
+    eventloop: EventLoop,
+    state: Arc<Mutex<EngineState>>,
+}
+
+impl Engine {
+    pub fn new(mqtt_options: MqttOptions, cap: usize) -> Self {
+        let (client, eventloop) = AsyncClient::new(mqtt_options, cap);
+        Self {
+            client: client.clone(),
+            eventloop,
+            state: Arc::new(Mutex::new(EngineState::new())),
+        }
+    }
+
+    pub async fn subscribe(&self) -> Result<(), ClientError> {
+        self.client
+            .subscribe("battleship/register", QoS::AtLeastOnce)
+            .await?;
+        self.client
+            .subscribe("battleship/game/+/+/action", QoS::AtLeastOnce)
+            .await?;
+
+        Ok(())
     }
 
     pub async fn engine_loop(mut self) {
@@ -285,7 +314,12 @@ impl Engine {
                         _ => continue
                     };
 
-                    self.handle_packet(packet).await;
+                    let client = self.client.clone();
+                    let state = self.state.clone();
+                    tokio::spawn(async move {
+                        let callbacks = state.lock().await.handle_packet(packet);
+                        callbacks.execute_all(client).await;
+                    });
                 }
                 _ = tokio::signal::ctrl_c() => {
                     println!("\n❗ CTRL+C detected! Initiating graceful shutdown...");
