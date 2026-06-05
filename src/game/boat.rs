@@ -10,11 +10,29 @@ pub enum Direction {
     West,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug)]
 pub struct Boat {
     pub(super) starting_position: (usize, usize),
     pub(super) direction: Direction,
     hits: Box<[bool]>,
+}
+
+impl<'de> Deserialize<'de> for Boat {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct BoatDef {
+            starting_position: (usize, usize),
+            direction: Direction,
+            len: usize,
+        }
+
+        let def = BoatDef::deserialize(deserializer)?;
+
+        Ok(Boat::new(def.starting_position, def.direction, def.len))
+    }
 }
 
 impl Boat {

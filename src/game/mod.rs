@@ -10,6 +10,7 @@ pub mod hit_result;
 pub mod boat;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Role {
     Host,
     Guest,
