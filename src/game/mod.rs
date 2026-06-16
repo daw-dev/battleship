@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 use crate::game::{board::Board, hit_result::HitResult};
 
 pub mod board;
+pub mod boat;
 pub mod grid;
 pub mod hit_result;
-pub mod boat;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -32,7 +32,7 @@ impl FromStr for Role {
         match s {
             "Host" | "host" | "HOST" => Ok(Self::Host),
             "Guest" | "guest" | "GUEST" => Ok(Self::Guest),
-            _ => Err(format!("{s} is not a role"))
+            _ => Err(format!("{s} is not a role")),
         }
     }
 }
@@ -56,7 +56,10 @@ pub struct Game<const BOARD_WIDTH: usize = 8, const BOARD_HEIGHT: usize = 8> {
 }
 
 impl<const BOARD_WIDTH: usize, const BOARD_HEIGHT: usize> Game<BOARD_WIDTH, BOARD_HEIGHT> {
-    pub fn new(host_board: Board<BOARD_WIDTH, BOARD_HEIGHT>, guest_board: Board<BOARD_WIDTH, BOARD_HEIGHT>) -> Self {
+    pub fn new(
+        host_board: Board<BOARD_WIDTH, BOARD_HEIGHT>,
+        guest_board: Board<BOARD_WIDTH, BOARD_HEIGHT>,
+    ) -> Self {
         Self {
             host_board,
             guest_board,
@@ -77,5 +80,12 @@ impl<const BOARD_WIDTH: usize, const BOARD_HEIGHT: usize> Game<BOARD_WIDTH, BOAR
 
     pub fn turn(&self) -> Role {
         self.turn
+    }
+
+    pub fn safe_boats_count(&self, role: Role) -> usize {
+        match role {
+            Role::Host => self.host_board.safe_boats_count(),
+            Role::Guest => self.guest_board.safe_boats_count(),
+        }
     }
 }

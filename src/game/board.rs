@@ -1,6 +1,13 @@
-use std::sync::{Arc, RwLock};
+use std::{
+    cell::RefCell,
+    sync::{Arc, RwLock},
+};
 
-use crate::game::{boat::{Boat, Direction}, grid::Grid, hit_result::HitResult};
+use crate::game::{
+    boat::{Boat, Direction},
+    grid::Grid,
+    hit_result::HitResult,
+};
 
 type BoatRef = Arc<RwLock<Boat>>;
 
@@ -66,5 +73,15 @@ impl<const W: usize, const H: usize> Board<W, H> {
             boat_refs,
             boats,
         }
+    }
+
+    pub fn safe_boats_count(&self) -> usize {
+        self.boats
+            .iter()
+            .filter_map(|boat| {
+                let boat = boat.read().unwrap();
+                boat.is_safe().then_some(())
+            })
+            .count()
     }
 }

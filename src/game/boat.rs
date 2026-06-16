@@ -86,4 +86,8 @@ impl Boat {
     pub fn len(&self) -> usize {
         self.hits.len()
     }
+
+    pub fn is_safe(&self) -> bool {
+        self.hits.iter().all(|hit| *hit)
+    }
 }

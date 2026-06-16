@@ -91,6 +91,11 @@ impl EngineState {
             position: (usize, usize),
         }
 
+        #[derive(Serialize)]
+        struct GameOverInfo {
+            winner: Role,
+        }
+
         let Some(game) = self.active_games.get_mut(&game_id) else {
             eprintln!("no such active game");
             return;
@@ -105,6 +110,8 @@ impl EngineState {
         };
 
         let turn = game.turn();
+
+        let game_over = game.safe_boats_count(!turn) == 0;
 
         callbacks.add_callback(async move |client| {
             let res = client
@@ -133,17 +140,32 @@ impl EngineState {
                 eprintln!("couldn't send info to defender: {}", err);
             }
 
-            let res = client
-                .publish(
-                    format!("battleship/game/{game_id}/state"),
-                    QoS::AtLeastOnce,
-                    false,
-                    serde_json::to_string(&TurnInfo { turn }).unwrap(),
-                )
-                .await;
+            if game_over {
+                let res = client
+                    .publish(
+                        format!("battleship/game/{game_id}/state"),
+                        QoS::AtLeastOnce,
+                        false,
+                        serde_json::to_string(&GameOverInfo { winner: turn }).unwrap(),
+                    )
+                    .await;
 
-            if let Err(err) = res {
-                eprintln!("couldn't send turn info: {}", err);
+                if let Err(err) = res {
+                    eprintln!("couldn't send turn info: {}", err);
+                }
+            } else {
+                let res = client
+                    .publish(
+                        format!("battleship/game/{game_id}/state"),
+                        QoS::AtLeastOnce,
+                        false,
+                        serde_json::to_string(&TurnInfo { turn }).unwrap(),
+                    )
+                    .await;
+
+                if let Err(err) = res {
+                    eprintln!("couldn't send turn info: {}", err);
+                }
             }
         });
     }
