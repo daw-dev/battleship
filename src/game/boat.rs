@@ -88,6 +88,6 @@ impl Boat {
     }
 
     pub fn is_safe(&self) -> bool {
-        self.hits.iter().all(|hit| *hit)
+        self.hits.iter().any(|hit| !*hit)
     }
 }

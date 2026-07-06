@@ -83,7 +83,7 @@ impl<const BOARD_WIDTH: usize, const BOARD_HEIGHT: usize> Game<BOARD_WIDTH, BOAR
         if hit_result == HitResult::Sunk && board.safe_boats_count() == 0 {
             self.status = GameStatus::GameOver { winner: turn };
         } else {
-            self.status = GameStatus::Playing { turn };
+            self.status = GameStatus::Playing { turn: !turn };
         }
 
         hit_result
