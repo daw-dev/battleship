@@ -352,19 +352,14 @@ impl Engine {
             .subscribe("battleship/game/+/spectator", QoS::AtLeastOnce)
             .await?;
 
+        let mut topics_to_clear = std::collections::HashSet::new();
+
         loop {
             let poll_result =
                 tokio::time::timeout(Duration::from_millis(200), self.eventloop.poll()).await;
             match poll_result {
                 Ok(Ok(Event::Incoming(Packet::Publish(packet)))) => {
-                    println!("🧹 Clearing retained message on topic: {}", packet.topic);
-                    if let Err(e) = self
-                        .client
-                        .publish(&packet.topic, QoS::AtLeastOnce, true, Vec::new())
-                        .await
-                    {
-                        eprintln!("⚠️ Failed to clear retained topic {}: {}", packet.topic, e);
-                    }
+                    topics_to_clear.insert(packet.topic);
                 }
                 Ok(Ok(_)) => {}
                 Ok(Err(err)) => {
@@ -380,6 +375,17 @@ impl Engine {
         self.client
             .unsubscribe("battleship/game/+/spectator")
             .await?;
+
+        for topic in topics_to_clear {
+            println!("🧹 Clearing retained message on topic: {}", topic);
+            if let Err(e) = self
+                .client
+                .publish(&topic, QoS::AtLeastOnce, true, Vec::new())
+                .await
+            {
+                eprintln!("⚠️ Failed to clear retained topic {}: {}", topic, e);
+            }
+        }
 
         Ok(())
     }
