@@ -5,7 +5,7 @@ use crate::{
 use itertools::Itertools;
 use rumqttc::{AsyncClient, ClientError, Event, EventLoop, MqttOptions, Packet, Publish, QoS};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 
 #[derive(Deserialize, Debug)]
@@ -344,6 +344,44 @@ impl Engine {
             eventloop,
             state: Arc::new(Mutex::new(EngineState::new())),
         }
+    }
+
+    pub async fn clear_retained_messages(&mut self) -> Result<(), ClientError> {
+        println!("🧹 Cleaning up previous retained spectator messages...");
+        self.client
+            .subscribe("battleship/game/+/spectator", QoS::AtLeastOnce)
+            .await?;
+
+        loop {
+            let poll_result =
+                tokio::time::timeout(Duration::from_millis(200), self.eventloop.poll()).await;
+            match poll_result {
+                Ok(Ok(Event::Incoming(Packet::Publish(packet)))) => {
+                    println!("🧹 Clearing retained message on topic: {}", packet.topic);
+                    if let Err(e) = self
+                        .client
+                        .publish(&packet.topic, QoS::AtLeastOnce, true, Vec::new())
+                        .await
+                    {
+                        eprintln!("⚠️ Failed to clear retained topic {}: {}", packet.topic, e);
+                    }
+                }
+                Ok(Ok(_)) => {}
+                Ok(Err(err)) => {
+                    eprintln!("⚠️ Error polling event loop during cleanup: {}", err);
+                    break;
+                }
+                Err(_) => {
+                    break;
+                }
+            }
+        }
+
+        self.client
+            .unsubscribe("battleship/game/+/spectator")
+            .await?;
+
+        Ok(())
     }
 
     pub async fn subscribe(&self) -> Result<(), ClientError> {

@@ -19,8 +19,11 @@ async fn main() -> Result<(), ClientError> {
 
     println!("🌍 Instantiating client...");
 
-    let engine = Engine::new(mqtt_options, 10);
+    let mut engine = Engine::new(mqtt_options, 10);
 
+    if let Err(e) = engine.clear_retained_messages().await {
+        eprintln!("⚠️ Failed to clear retained messages: {}", e);
+    }
 
     println!("✉️ Subscribing to topics...");
 
