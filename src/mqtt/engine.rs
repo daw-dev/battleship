@@ -1,5 +1,5 @@
 use crate::{
-    game::{Game, Role, board::Board, boat::Boat, hit_result::HitResult},
+    game::{Game, GameStatus, Role, board::Board, boat::Boat, hit_result::HitResult},
     mqtt::callbacks::Callbacks,
 };
 use itertools::Itertools;
@@ -83,7 +83,13 @@ impl EngineState {
         self.register_id += 1;
     }
 
-    fn handle_shoot(&mut self, game_id: usize, attacker: Role, position: (usize, usize), callbacks: &mut Callbacks) {
+    fn handle_shoot(
+        &mut self,
+        game_id: usize,
+        attacker: Role,
+        position: (usize, usize),
+        callbacks: &mut Callbacks,
+    ) {
         #[derive(Serialize)]
         struct HitInfo {
             attacker: Role,
@@ -109,9 +115,9 @@ impl EngineState {
             position,
         };
 
-        let turn = game.turn();
+        let status = game.status();
 
-        let game_over = game.safe_boats_count(!turn) == 0;
+        let game_spec_info = game.spec_info();
 
         callbacks.add_callback(async move |client| {
             let res = client
@@ -140,37 +146,59 @@ impl EngineState {
                 eprintln!("couldn't send info to defender: {}", err);
             }
 
-            if game_over {
-                let res = client
-                    .publish(
-                        format!("battleship/game/{game_id}/state"),
-                        QoS::AtLeastOnce,
-                        false,
-                        serde_json::to_string(&GameOverInfo { winner: turn }).unwrap(),
-                    )
-                    .await;
+            match status {
+                GameStatus::Playing { turn } => {
+                    let res = client
+                        .publish(
+                            format!("battleship/game/{game_id}/state"),
+                            QoS::AtLeastOnce,
+                            false,
+                            serde_json::to_string(&TurnInfo { turn }).unwrap(),
+                        )
+                        .await;
 
-                if let Err(err) = res {
-                    eprintln!("couldn't send turn info: {}", err);
+                    if let Err(err) = res {
+                        eprintln!("couldn't send turn info: {}", err);
+                    }
                 }
-            } else {
-                let res = client
-                    .publish(
-                        format!("battleship/game/{game_id}/state"),
-                        QoS::AtLeastOnce,
-                        false,
-                        serde_json::to_string(&TurnInfo { turn }).unwrap(),
-                    )
-                    .await;
+                GameStatus::GameOver { winner } => {
+                    let res = client
+                        .publish(
+                            format!("battleship/game/{game_id}/state"),
+                            QoS::AtLeastOnce,
+                            false,
+                            serde_json::to_string(&GameOverInfo { winner }).unwrap(),
+                        )
+                        .await;
 
-                if let Err(err) = res {
-                    eprintln!("couldn't send turn info: {}", err);
+                    if let Err(err) = res {
+                        eprintln!("couldn't send turn info: {}", err);
+                    }
                 }
+            }
+
+            let res = client
+                .publish(
+                    format!("battleship/game/{game_id}/spectator"),
+                    QoS::AtLeastOnce,
+                    true,
+                    serde_json::to_string(&game_spec_info).unwrap(),
+                )
+                .await;
+
+            if let Err(err) = res {
+                eprintln!("couldn't send spectator info: {}", err);
             }
         });
     }
 
-    fn handle_setup(&mut self, game_id: usize, role: Role, boats: Vec<Boat>, callbacks: &mut Callbacks) {
+    fn handle_setup(
+        &mut self,
+        game_id: usize,
+        role: Role,
+        boats: Vec<Boat>,
+        callbacks: &mut Callbacks,
+    ) {
         let Some(game) = self.waiting_games.get_mut(&game_id) else {
             eprintln!("no such waiting game");
             return;
@@ -197,7 +225,9 @@ impl EngineState {
                 Board::new(game.guest_boats.unwrap()),
             );
 
-            let first_turn = new_game.turn();
+            let GameStatus::Playing { turn: first_turn } = new_game.status() else {
+                unreachable!("game over in setup")
+            };
 
             self.active_games.insert(game_id, new_game);
 
@@ -220,7 +250,13 @@ impl EngineState {
         }
     }
 
-    fn handle_action(&mut self, game_id: usize, role: Role, action_payload: Action, callbacks: &mut Callbacks) {
+    fn handle_action(
+        &mut self,
+        game_id: usize,
+        role: Role,
+        action_payload: Action,
+        callbacks: &mut Callbacks,
+    ) {
         match action_payload {
             Action::Shoot(x, y) => self.handle_shoot(game_id, role, (x, y), callbacks),
             Action::Setup(boats) => self.handle_setup(game_id, role, boats, callbacks),

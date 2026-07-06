@@ -1,8 +1,6 @@
 use std::{fmt::Display, str::FromStr};
-
 use serde::{Deserialize, Serialize};
-
-use crate::game::{board::Board, hit_result::HitResult};
+use crate::game::{board::Board, grid::Grid, hit_result::HitResult};
 
 pub mod board;
 pub mod boat;
@@ -48,11 +46,17 @@ impl std::ops::Not for Role {
     }
 }
 
+#[derive(Debug, Clone, Copy, Serialize)]
+pub enum GameStatus {
+    Playing { turn: Role },
+    GameOver { winner: Role },
+}
+
 #[derive(Debug)]
 pub struct Game<const BOARD_WIDTH: usize = 8, const BOARD_HEIGHT: usize = 8> {
     host_board: Board<BOARD_WIDTH, BOARD_HEIGHT>,
     guest_board: Board<BOARD_WIDTH, BOARD_HEIGHT>,
-    turn: Role,
+    status: GameStatus,
 }
 
 impl<const BOARD_WIDTH: usize, const BOARD_HEIGHT: usize> Game<BOARD_WIDTH, BOARD_HEIGHT> {
@@ -63,29 +67,44 @@ impl<const BOARD_WIDTH: usize, const BOARD_HEIGHT: usize> Game<BOARD_WIDTH, BOAR
         Self {
             host_board,
             guest_board,
-            turn: Role::Guest,
+            status: GameStatus::Playing { turn: Role::Guest },
         }
     }
 
     pub fn shoot(&mut self, position: (usize, usize)) -> HitResult {
-        let board = match self.turn {
-            Role::Host => &mut self.guest_board,
-            Role::Guest => &mut self.host_board,
+        let (turn, board) = match self.status {
+            GameStatus::Playing { turn: Role::Host } => (Role::Host, &mut self.guest_board),
+            GameStatus::Playing { turn: Role::Guest } => (Role::Guest, &mut self.host_board),
+            GameStatus::GameOver { .. } => unreachable!("shooting after game over"),
         };
 
-        self.turn = !self.turn;
+        let hit_result = board.shoot(position);
+        
+        if hit_result == HitResult::Sunk && board.safe_boats_count() == 0 {
+            self.status = GameStatus::GameOver { winner: turn };
+        } else {
+            self.status = GameStatus::Playing { turn };
+        }
 
-        board.shoot(position)
+        hit_result
     }
 
-    pub fn turn(&self) -> Role {
-        self.turn
+    pub fn status(&self) -> GameStatus {
+        self.status
     }
 
-    pub fn safe_boats_count(&self, role: Role) -> usize {
-        match role {
-            Role::Host => self.host_board.safe_boats_count(),
-            Role::Guest => self.guest_board.safe_boats_count(),
+    pub fn spec_info(&self) -> SpectatorInfo<BOARD_WIDTH, BOARD_HEIGHT> {
+        SpectatorInfo {
+            host_hits: self.host_board.hits().clone(),
+            guest_hits: self.guest_board.hits().clone(),
+            status: self.status,
         }
     }
+}
+
+#[derive(Serialize)]
+pub struct SpectatorInfo<const BOARD_WIDTH: usize = 8, const BOARD_HEIGHT: usize = 8> {
+    host_hits: Grid<BOARD_WIDTH, BOARD_HEIGHT, Option<HitResult>>,
+    guest_hits: Grid<BOARD_WIDTH, BOARD_HEIGHT, Option<HitResult>>,
+    status: GameStatus,
 }

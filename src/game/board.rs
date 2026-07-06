@@ -1,7 +1,4 @@
-use std::{
-    cell::RefCell,
-    sync::{Arc, RwLock},
-};
+use std::sync::{Arc, RwLock};
 
 use crate::game::{
     boat::{Boat, Direction},
@@ -13,18 +10,19 @@ type BoatRef = Arc<RwLock<Boat>>;
 
 #[derive(Debug)]
 pub struct Board<const W: usize = 8, const H: usize = 8> {
-    hits: Grid<W, H, bool>,
+    hits: Grid<W, H, Option<HitResult>>,
     boat_refs: Grid<W, H, Option<BoatRef>>,
     boats: Vec<BoatRef>,
 }
 
 impl<const W: usize, const H: usize> Board<W, H> {
     pub fn shoot(&mut self, position: (usize, usize)) -> HitResult {
-        self.hits[position] = true;
-        self.boat_refs[position]
+        let res = self.boat_refs[position]
             .as_ref()
             .map(|boat| boat.write().unwrap().hit(position))
-            .unwrap_or(HitResult::Water)
+            .unwrap_or(HitResult::Water);
+        self.hits[position] = Some(res);
+        res
     }
 
     pub fn new(boats: Vec<Boat>) -> Self {
@@ -83,5 +81,9 @@ impl<const W: usize, const H: usize> Board<W, H> {
                 boat.is_safe().then_some(())
             })
             .count()
+    }
+
+    pub fn hits(&self) -> &Grid<W, H, Option<HitResult>> {
+        &self.hits
     }
 }
