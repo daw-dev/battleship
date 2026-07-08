@@ -1,0 +1,22 @@
+[Unit]
+Description=Battleship Cargo Daemon
+Requires=mosquitto.service
+After=mosquitto.service
+
+[Service]
+Type=forking
+User=daw
+Group=daw
+WorkingDirectory=/home/daw/projects/embedded/battleship
+
+Environment="PATH=/home/daw/.cargo/bin:/usr/local/bin:/usr/bin:/bin"
+
+ExecStart=/usr/bin/tmux new-session -d -s battleship 'cargo run --release'
+
+ExecStop=/usr/bin/tmux kill-session -t battleship
+
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
