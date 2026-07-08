@@ -401,7 +401,18 @@ impl Engine {
         Ok(())
     }
 
+    async fn shutdown(&mut self) {
+        if let Err(e) = self.client.disconnect().await {
+            eprintln!("⚠️ Failed to disconnect cleanly: {}", e);
+        } else {
+            println!("🔌 Disconnected!");
+        }
+    }
+
     pub async fn engine_loop(mut self) {
+        let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("Failed to bind to SIGTERM");
+
         loop {
             tokio::select! {
                 res = self.eventloop.poll() => {
@@ -426,11 +437,14 @@ impl Engine {
                 _ = tokio::signal::ctrl_c() => {
                     println!("\n❗ CTRL+C detected! Initiating graceful shutdown...");
 
-                    if let Err(e) = self.client.disconnect().await {
-                        eprintln!("⚠️ Failed to disconnect cleanly: {}", e);
-                    } else {
-                        println!("🔌 Disconnected!");
-                    }
+                    self.shutdown().await;
+
+                    break;
+                }
+                _ = sigterm.recv() => {
+                    println!("\n❗ SIGTERM detected! Initiating graceful shutdown...");
+
+                    self.shutdown().await;
 
                     break;
                 }
