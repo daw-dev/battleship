@@ -44,7 +44,7 @@ impl Boat {
         }
     }
 
-    pub fn hit(&mut self, position: (usize, usize)) -> HitResult {
+    pub fn shoot(&mut self, position: (usize, usize)) -> HitResult {
         let index = match self.direction {
             Direction::North => {
                 if position.0 != self.starting_position.0 {

@@ -19,7 +19,7 @@ impl<const W: usize, const H: usize> Board<W, H> {
     pub fn shoot(&mut self, position: (usize, usize)) -> HitResult {
         let res = self.boat_refs[position]
             .as_ref()
-            .map(|boat| boat.write().unwrap().hit(position))
+            .map(|boat| boat.write().unwrap().shoot(position))
             .unwrap_or(HitResult::Water);
         self.hits[position] = Some(res);
         res
