@@ -1,74 +1,85 @@
-# IoT Battleship
+# 🚢 IoT Battleship
 
 An Embedded Software Battleship game.
 
-## Architecture
+---
+
+## 🛠️ Architecture
 
 This project runs on some modular independent boards and a MQTT Broker / Game Manager.
 
-### The Board
+### 🎮 The Board
 
-#### Hardware
+#### 🔌 Hardware
 
 A single board is composed of:
 
-- ESP32-WROOM-32 development board
-- Adafruit NeoPixel 8x8 RGB Led Matrix
-- Analog Joystick
-- Development breadboard
-- Jumper wires
+- **ESP32-WROOM-32** development board
+- **Adafruit NeoPixel 8x8 RGB** Led Matrix
+- **Analog Joystick**
+- **Development breadboard**
+- **Jumper wires**
 
-#### Software
+#### 💻 Software
 
-Each board is programmed using Arduino IDE and the Arduino programming language utilizing various libraries to simplify
-the LED matrix usage, the WIFI/MQTT communication and json serialization/deserialization.
+Each board is programmed using **Arduino IDE** and the **Arduino programming language** utilizing various libraries to simplify:
+- the LED matrix usage
+- the WIFI/MQTT communication
+- json serialization/deserialization
 
-### The MQTT Broker / Game Manager
+---
 
-#### Hardware
+### 🖥️ The MQTT Broker / Game Manager
 
-Literally just a Raspberry Pi 5 (8GB Model).
+#### 🔌 Hardware
 
-#### Software
+Literally just a **Raspberry Pi 5 (8GB Model)**.
 
-The MQTT Broker we used is mosquitto and the Game Manager was built on Rust using `rumqttc` for MQTT communication, serde
-for serialization/deserialization and tokio for parallelization.
+#### 💻 Software
 
-## Project layout
+The MQTT Broker we used is **mosquitto** and the Game Manager was built on **Rust** using:
+- `rumqttc` for MQTT communication
+- `serde` for serialization/deserialization
+- `tokio` for parallelization
 
-The project is divided into two repositories: one for the code that is run on the ESP32 boards and one run on the 
-Raspberry Pi MQTT Broker / Game Manager.
+---
 
-### ESP32 Repository
+## 📂 Project layout
+
+The project is divided into two repositories: one for the code that is run on the ESP32 boards and one run on the Raspberry Pi MQTT Broker / Game Manager.
+
+### 🔌 ESP32 Repository
 
 
 
-### Raspberry Pi Repository
+### 🍓 Raspberry Pi Repository
 
 This repository contains the Rust-based Game Manager and MQTT engine, structured as follows:
 - **`src/main.rs`**: Entry point that initializes the MQTT client and launches the event loop.
 - **`game` module** (`src/game/`): Manages the core Battleship game logic, grids, board states, ship placements, and turns.
 - **`mqtt` module** (`src/mqtt/`): Manages subscriptions, client-broker communication, and routing of player actions.
 
-## How to run the Project
+---
 
-### ESP32
+## 🚀 How to run the Project
 
-1. **Clone** the repository.
-2. **Open** the project folder in the Arduino IDE.
-3. **Install** all necessary external libraries (LED matrix, Wifi/MQTT, and JSON serialization).
-4. **Connect** the ESP32 board to your computer via USB.
-5. **Select** your ESP32 board model and its COM port in the Arduino IDE.
-6. **Compile and flash** the code (hold the BOOT button on the board during flashing if required).
+### 🔌 ESP32
 
-### Raspberry Pi
+1. 📥 **Clone** the repository.
+2. 📂 **Open** the project folder in the Arduino IDE.
+3. 📦 **Install** all necessary external libraries (LED matrix, Wifi/MQTT, and JSON serialization).
+4. 🔌 **Connect** the ESP32 board to your computer via USB.
+5. ⚙️ **Select** your ESP32 board model and its COM port in the Arduino IDE.
+6. ⚡ **Compile and flash** the code (hold the **BOOT** button on the board during flashing if required).
+
+### 🍓 Raspberry Pi
 
 Ensure you have the following installed:
-- [Rust toolchain](https://rustup.rs/) (edition 2024)
-- An MQTT broker (e.g., `mosquitto`) running locally on port `1883`
-- `tmux` (required by the Systemd configuration script)
+- 🦀 [Rust toolchain](https://rustup.rs/) (edition 2024)
+- 📡 An MQTT broker (e.g., `mosquitto`) running locally on port `1883`
+- 🖥️ `tmux` (required by the Systemd configuration script)
 
-### Running Locally
+#### 🏃 Running Locally
 
 To build and run the daemon in development mode:
 
@@ -80,12 +91,13 @@ cargo build
 cargo run
 ```
 
+---
+
 ## ⚙️ Systemd Service Configuration
 
-A systemd service file [battleship.service](./battleship.service) is provided to deploy the daemon in a tmux session
-on startup.
+A systemd service file [battleship.service](./battleship.service) is provided to deploy the daemon in a tmux session on startup.
 
-### Installation
+### 📥 Installation
 
 1. Copy the service file to the systemd user configuration directory:
    ```bash
@@ -101,25 +113,26 @@ on startup.
    sudo systemctl start battleship.service
    ```
 
-### Managing the Service
+### 🛠️ Managing the Service
 
-- **Check Service Status**:
+- 🔍 **Check Service Status**:
   ```bash
   sudo systemctl status battleship.service
   ```
-- **Attach to the live stdout log session**:
+- 🔗 **Attach to the live stdout log session**:
   ```bash
   tmux attach -t battleship
   ```
-- **Stop the Daemon**:
+- 🛑 **Stop the Daemon**:
   ```bash
   sudo systemctl stop battleship.service
   ```
 
-## User Guide
+---
 
-Once the Raspberry Pi is running the Game Manager and the ESP32 boards correctly connect to the Raspberry Pi hotspot,
-the game is ready to start:
+## 📖 User Guide
+
+Once the Raspberry Pi is running the Game Manager and the ESP32 boards correctly connect to the Raspberry Pi hotspot, the game is ready to start:
 
 ```mermaid
 sequenceDiagram
@@ -142,17 +155,20 @@ sequenceDiagram
     end
 ```
 
-## References
+---
 
-[**Presentation**](https://docs.google.com/presentation/d/1vgT72Y98m0-YmwCWU1lp5Xn9kgrrET08/edit?usp=sharing&ouid=107977755165926991142&rtpof=true&sd=true)
+## 📚 References
 
-[**Video Pitch**](https://youtu.be/fi8UGSru58Q)
+- 📊 [**Presentation**](https://docs.google.com/presentation/d/1vgT72Y98m0-YmwCWU1lp5Xn9kgrrET08/edit?usp=sharing&ouid=107977755165926991142&rtpof=true&sd=true)
+- 🎥 [**Video Pitch**](https://youtu.be/fi8UGSru58Q)
 
-## The Team
+---
 
-| Team Member           | Responsibility                                                                                        |
-|-----------------------|-------------------------------------------------------------------------------------------------------|
-| Dalla Betta Davide    | - Raspberry Pi setup<br>- Battleship Game Manager<br>- MQTT communication (Raspberry Pi side)         |
-| Leone Riccardo        | - MQTT communication (ESP32 side)<br>- Internal State management                                      |
-| Farsetti Chiara       | - Game Board development<br>- LED Matrix Display<br>- Analog Joystick Input<br>- Game Loop Management |
-| Pillitteri Alessandra | - Game Board development<br>- LED Matrix Display<br>- Analog Joystick Input<br>- Game Loop Management |
+## 👥 The Team
+
+| Team Member | Responsibility |
+| :--- | :--- |
+| **Dalla Betta Davide** | - Raspberry Pi setup<br>- Battleship Game Manager<br>- MQTT communication (Raspberry Pi side) |
+| **Leone Riccardo** | - MQTT communication (ESP32 side)<br>- Internal State management |
+| **Farsetti Chiara** | - Game Board development<br>- LED Matrix Display<br>- Analog Joystick Input<br>- Game Loop Management |
+| **Pillitteri Alessandra** | - Game Board development<br>- LED Matrix Display<br>- Analog Joystick Input<br>- Game Loop Management |
