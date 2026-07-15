@@ -60,6 +60,7 @@ This repository contains the Rust-based Game Manager and MQTT engine, structured
 4. **Connect** the ESP32 board to your computer via USB.
 5. **Select** your ESP32 board model and its COM port in the Arduino IDE.
 6. **Compile and flash** the code (hold the BOOT button on the board during flashing if required).
+
 ### Raspberry Pi
 
 Ensure you have the following installed:
