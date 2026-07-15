@@ -45,15 +45,21 @@ Raspberry Pi MQTT Broker / Game Manager.
 
 ### Raspberry Pi Repository
 
-
+This repository contains the Rust-based Game Manager and MQTT engine, structured as follows:
+- **`src/main.rs`**: Entry point that initializes the MQTT client and launches the event loop.
+- **`game` module** (`src/game/`): Manages the core Battleship game logic, grids, board states, ship placements, and turns.
+- **`mqtt` module** (`src/mqtt/`): Manages subscriptions, client-broker communication, and routing of player actions.
 
 ## How to run the Project
 
-### ESP32 
+### ESP32
 
-Clone the repository, open it in Arduino IDE, include the needed libraries, connect the ESP32 board, select the board 
-in the IDE, compile the code and burn it by pressing the BOOT button on the ESP32 
-
+1. **Clone** the repository.
+2. **Open** the project folder in the Arduino IDE.
+3. **Install** all necessary external libraries (LED matrix, Wifi/MQTT, and JSON serialization).
+4. **Connect** the ESP32 board to your computer via USB.
+5. **Select** your ESP32 board model and its COM port in the Arduino IDE.
+6. **Compile and flash** the code (hold the BOOT button on the board during flashing if required).
 ### Raspberry Pi
 
 Ensure you have the following installed:
