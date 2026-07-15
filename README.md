@@ -143,9 +143,9 @@ sequenceDiagram
 
 ## The Team
 
-| Team Member           | Responsibility                                                                                |
-|-----------------------|-----------------------------------------------------------------------------------------------|
-| Dalla Betta Davide    | - Raspberry Pi setup<br>- Battleship Game Manager<br>- MQTT communication (Raspberry Pi side) |
-| Leone Riccardo        | - MQTT communication (ESP32 side)<br>- Internal State management                              |
-| Farsetti Chiara       | - Game Board development<br>- LED Matrix Display<br>- Analog Joystick Input                   |
-| Pillitteri Alessandra | - Game Board development<br>- LED Matrix Display<br>- Analog Joystick Input                   |
+| Team Member           | Responsibility                                                                                        |
+|-----------------------|-------------------------------------------------------------------------------------------------------|
+| Dalla Betta Davide    | - Raspberry Pi setup<br>- Battleship Game Manager<br>- MQTT communication (Raspberry Pi side)         |
+| Leone Riccardo        | - MQTT communication (ESP32 side)<br>- Internal State management                                      |
+| Farsetti Chiara       | - Game Board development<br>- LED Matrix Display<br>- Analog Joystick Input<br>- Game Loop Management |
+| Pillitteri Alessandra | - Game Board development<br>- LED Matrix Display<br>- Analog Joystick Input<br>- Game Loop Management |
